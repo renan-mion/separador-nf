@@ -1,5 +1,5 @@
 // Módulo de Persistência na Nuvem (Supabase — Apenas Metadados, Sem PDFs)
-const SUPABASE_URL = 'https://leufprzyqtghbhytplfh.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://leufprzyqtghbhytplfh.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zabo1Rj7DS0PL09N7txqTw_61V8nnS1';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
