@@ -1,77 +1,115 @@
-// Módulo de Persistência Local (IndexedDB — Livre de Cookies)
-const DB_NAME = 'CentralFerramentasDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'processamentos';
+// Módulo de Persistência na Nuvem (Supabase — Apenas Metadados, Sem PDFs)
+const SUPABASE_URL = 'https://leufprzyqtghbhytplfh.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_zabo1Rj7DS0PL09N7txqTw_61V8nnS1';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Remove os bytes pesados do PDF antes de enviar para o banco online
+function sanitizarItensParaBanco(items) {
+  return (items || []).map(item => ({
+    id: item.id,
+    pageIndices: item.pageIndices,
+    nfNumber: item.nfNumber,
+    filename: item.filename,
+    status: item.status
+  }));
 }
 
 export async function dbSalvarProcessamento(registro) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = registro.id ? store.put(registro) : store.add(registro);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const payload = {
+    ferramenta: registro.ferramenta,
+    pdf_original: registro.pdfOriginal,
+    paginas_analisadas: registro.paginasAnalisadas,
+    notas_identificadas: registro.notasIdentificadas,
+    arquivos_gerados: registro.arquivosGerados,
+    precisam_revisao: registro.precisamRevisao,
+    tempo: registro.tempo,
+    status: registro.status,
+    items: sanitizarItensParaBanco(registro.items)
+  };
+
+  if (registro.id) {
+    const { data, error } = await supabaseClient
+      .from('processamentos')
+      .update(payload)
+      .eq('id', registro.id)
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return data.id;
+  } else {
+    const { data, error } = await supabaseClient
+      .from('processamentos')
+      .insert(payload)
+      .select('id, created_at')
+      .single();
+
+    if (error) throw error;
+    registro.timestamp = new Date(data.created_at).getTime();
+    return data.id;
+  }
+}
+
+function mapearLinhaBanco(row) {
+  return {
+    id: row.id,
+    timestamp: new Date(row.created_at).getTime(),
+    ferramenta: row.ferramenta,
+    pdfOriginal: row.pdf_original,
+    paginasAnalisadas: row.paginas_analisadas,
+    notasIdentificadas: row.notas_identificadas,
+    arquivosGerados: row.arquivos_gerados,
+    precisamRevisao: row.precisam_revisao,
+    tempo: row.tempo,
+    status: row.status,
+    items: row.items || []
+  };
 }
 
 export async function dbListarProcessamentos() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.getAll();
-    req.onsuccess = () => {
-      const lista = req.result || [];
-      lista.sort((a, b) => b.timestamp - a.timestamp);
-      resolve(lista);
-    };
-    req.onerror = () => reject(req.error);
-  });
+  const { data, error } = await supabaseClient
+    .from('processamentos')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao listar Supabase:', error);
+    return [];
+  }
+  return (data || []).map(mapearLinhaBanco);
 }
 
 export async function dbObterPorId(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).get(id);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const { data, error } = await supabaseClient
+    .from('processamentos')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Erro ao buscar registro:', error);
+    return null;
+  }
+  return mapearLinhaBanco(data);
 }
 
 export async function dbExcluirPorId(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const req = tx.objectStore(STORE_NAME).delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  const { error } = await supabaseClient
+    .from('processamentos')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
 }
 
 export async function dbLimparTudo() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const req = tx.objectStore(STORE_NAME).clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  const { error } = await supabaseClient
+    .from('processamentos')
+    .delete()
+    .neq('id', 0);
+
+  if (error) throw error;
 }
 
 export function formatarDataHoraBR(ts) {

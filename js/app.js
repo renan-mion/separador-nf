@@ -67,7 +67,7 @@ async function carregarDashboard() {
   const container = document.getElementById('dash-history-container');
   if (registros.length === 0) {
     container.className = 'empty-box';
-    container.innerHTML = 'Nenhum processamento ainda.';
+    container.innerHTML = 'Nenhum processamento registrado na nuvem ainda.';
   } else {
     container.className = 'table-card';
     container.innerHTML = `
@@ -180,8 +180,13 @@ async function iniciarProcessamento() {
     items: batchItems
   };
 
-  currentRecordId = await dbSalvarProcessamento(currentRecordMeta);
-  currentRecordMeta.id = currentRecordId;
+  try {
+    currentRecordId = await dbSalvarProcessamento(currentRecordMeta);
+    currentRecordMeta.id = currentRecordId;
+  } catch (err) {
+    console.error('Erro ao salvar no Supabase:', err);
+    alert('As NFs foram separadas na sessão, mas houve erro ao registrar no Supabase: ' + err.message);
+  }
 
   setTimeout(() => {
     document.getElementById('step-processing').classList.add('hidden');
@@ -207,6 +212,7 @@ async function sincronizarRegistroNoDB() {
 function renderizarResultados() {
   const identificadas = batchItems.filter(x => x.status !== 'nao_identificado').length;
   const revisao = batchItems.filter(x => x.status === 'nao_identificado').length;
+  const temArquivosNaSessao = batchItems.some(x => Boolean(x.pdfBytes));
 
   document.getElementById('res-paginas').textContent = batchStats.paginas;
   document.getElementById('res-identificadas').textContent = identificadas;
@@ -216,6 +222,10 @@ function renderizarResultados() {
 
   document.getElementById('res-subinfo').textContent =
     `${batchItems.length} arquivo(s) · ${revisao} aguardando revisão`;
+
+  // Só mostra o botão de ZIP em massa quando os PDFs estão na memória da sessão atual
+  const btnZip = document.getElementById('btn-download-zip');
+  if (btnZip) btnZip.classList.toggle('hidden', !temArquivosNaSessao);
 
   document.getElementById('warning-banner').classList.toggle('hidden', revisao === 0);
   document.getElementById('review-callout').classList.toggle('hidden', revisao === 0);
@@ -238,6 +248,19 @@ function renderizarResultados() {
       ? `<button class="icon-btn confirm" title="Confirmar" onclick="salvarEdicao(${item.id})">✓</button>`
       : `<button class="icon-btn" title="Editar número da NF" onclick="ativarEdicao(${item.id})">✎</button>`;
 
+    const sessionActions = item.pdfBytes
+      ? `
+        <button class="icon-btn" title="Visualizar PDF (Sessão atual)" onclick="visualizarPDF(${item.id})">👁</button>
+        ${editBtn}
+        <button class="icon-btn" title="Reprocessar OCR clássico" onclick="reprocessarItem(${item.id})">↻</button>
+        <button class="icon-btn" title="Baixar PDF (Sessão atual)" onclick="baixarPDF(${item.id})">⬇</button>
+        <button class="icon-btn danger" title="Remover" onclick="excluirItem(${item.id})">🗑</button>
+      `
+      : `
+        ${editBtn}
+        <button class="icon-btn danger" title="Remover registro" onclick="excluirItem(${item.id})">🗑</button>
+      `;
+
     return `
       <tr>
         <td>${nfCell}</td>
@@ -246,19 +269,16 @@ function renderizarResultados() {
         <td>${statusBadge}</td>
         <td>
           <div class="action-btns" style="justify-content: flex-end;">
-            <button class="icon-btn" title="Visualizar PDF" onclick="visualizarPDF(${item.id})">👁</button>
-            ${editBtn}
-            ${!isConsultingMode ? `<button class="icon-btn" title="Reprocessar OCR clássico" onclick="reprocessarItem(${item.id})">↻</button>` : ''}
-            <button class="icon-btn" title="Baixar PDF" onclick="baixarPDF(${item.id})">⬇</button>
-            <button class="icon-btn danger" title="Remover" onclick="excluirItem(${item.id})">🗑</button>
+            ${sessionActions}
           </div>
         </td>
       </tr>
     `;
   }).join('');
 
-  document.getElementById('footer-summary').textContent =
-    `${identificadas} nota(s) identificada(s) localmente. ${batchStats.paginas} página(s) analisadas.`;
+  document.getElementById('footer-summary').textContent = temArquivosNaSessao
+    ? `${identificadas} nota(s) identificada(s). Os arquivos PDF estão disponíveis para download apenas nesta sessão.`
+    : `Consulta de registro sincronizado na nuvem (arquivos PDF disponíveis apenas na sessão em que foram gerados).`;
 }
 
 function ativarEdicao(id) {
@@ -329,10 +349,11 @@ function baixarPDF(id) {
 }
 
 async function baixarZip() {
-  if (batchItems.length === 0) return;
+  const itensComBytes = batchItems.filter(x => Boolean(x.pdfBytes));
+  if (itensComBytes.length === 0) return;
   const zip = new JSZip();
-  for (const item of batchItems) {
-    if (item.pdfBytes) zip.file(item.filename, item.pdfBytes);
+  for (const item of itensComBytes) {
+    zip.file(item.filename, item.pdfBytes);
   }
   const content = await zip.generateAsync({ type: 'blob' });
   const a = document.createElement('a');
@@ -357,7 +378,7 @@ function resetarSeparador() {
 }
 
 // =========================================================================
-// HISTÓRICO DE PROCESSAMENTOS
+// HISTÓRICO DE PROCESSAMENTOS (SINCRONIZADO ENTRE PC E CELULAR)
 // =========================================================================
 async function renderizarHistorico() {
   const registros = await dbListarProcessamentos();
@@ -420,6 +441,7 @@ async function renderizarHistorico() {
       </tr>
     `;
 
+    // Sub-aba interligada ao conjunto quando houver pesquisa por NF ativa
     if (termoNF && matchedItems.length > 0) {
       html += `
         <tr class="matched-nf-row">
@@ -435,10 +457,7 @@ async function renderizarHistorico() {
                     <span class="mono" style="font-size: 13px; font-weight: 600;">${item.filename}</span>
                     <span style="font-size: 12.5px; color: var(--text-secondary);">(${item.pageIndices.length} pág.)</span>
                   </div>
-                  <div class="action-btns">
-                    <button class="btn-outline" onclick="visualizarItemHistorico(${reg.id}, ${item.id})">👁 Visualizar NF</button>
-                    <button class="btn-primary" style="padding: 7px 14px; font-size: 13px;" onclick="baixarItemHistorico(${reg.id}, ${item.id})">⬇ Baixar NF</button>
-                  </div>
+                  <span style="font-size: 12px; color: var(--success-text); font-weight: 600;">✓ Registrada no lote ${reg.pdfOriginal}</span>
                 </div>
               `).join('')}
             </div>
@@ -451,29 +470,8 @@ async function renderizarHistorico() {
   }).join('');
 }
 
-async function visualizarItemHistorico(recordId, itemId) {
-  const reg = await dbObterPorId(recordId);
-  if (!reg) return;
-  const item = (reg.items || []).find(x => x.id === itemId);
-  if (!item || !item.pdfBytes) return;
-  const blob = new Blob([item.pdfBytes], { type: 'application/pdf' });
-  window.open(URL.createObjectURL(blob), '_blank');
-}
-
-async function baixarItemHistorico(recordId, itemId) {
-  const reg = await dbObterPorId(recordId);
-  if (!reg) return;
-  const item = (reg.items || []).find(x => x.id === itemId);
-  if (!item || !item.pdfBytes) return;
-  const blob = new Blob([item.pdfBytes], { type: 'application/pdf' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = item.filename;
-  a.click();
-}
-
 async function excluirConjuntoHistorico(recordId) {
-  if (!confirm('Deseja excluir este conjunto do histórico? Os indicadores do Dashboard serão atualizados automaticamente.')) return;
+  if (!confirm('Deseja excluir este conjunto do histórico? Os indicadores do Dashboard serão atualizados em todos os dispositivos.')) return;
   await dbExcluirPorId(recordId);
   if (currentRecordId === recordId) {
     currentRecordId = null;
@@ -514,30 +512,11 @@ async function consultarRegistro(id) {
 }
 
 // =========================================================================
-// BACKUP / EXPORTAÇÃO JSON DO INDEXEDDB
+// BACKUP / EXPORTAÇÃO JSON
 // =========================================================================
 async function exportarBackupJSON() {
   const registros = await dbListarProcessamentos();
-  const payload = registros.map(r => ({
-    timestamp: r.timestamp,
-    ferramenta: r.ferramenta,
-    pdfOriginal: r.pdfOriginal,
-    paginasAnalisadas: r.paginasAnalisadas,
-    notasIdentificadas: r.notasIdentificadas,
-    arquivosGerados: r.arquivosGerados,
-    precisamRevisao: r.precisamRevisao,
-    tempo: r.tempo,
-    status: r.status,
-    items: (r.items || []).map(i => ({
-      id: i.id,
-      pageIndices: i.pageIndices,
-      nfNumber: i.nfNumber,
-      filename: i.filename,
-      status: i.status
-    }))
-  }));
-
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(registros, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `Registro_NFs_${new Date().toISOString().slice(0, 10)}.json`;
@@ -554,7 +533,7 @@ async function importarBackupJSON(file) {
       delete reg.id;
       await dbSalvarProcessamento(reg);
     }
-    alert(`${lista.length} registro(s) importado(s) com sucesso!`);
+    alert(`${lista.length} registro(s) importado(s) para o banco online!`);
     carregarDashboard();
   } catch (e) {
     alert('Erro ao importar arquivo JSON: ' + e.message);
@@ -562,13 +541,12 @@ async function importarBackupJSON(file) {
 }
 
 async function limparTodoBanco() {
-  if (!confirm('Tem certeza que deseja apagar todos os registros salvos neste navegador?')) return;
+  if (!confirm('Tem certeza que deseja apagar todos os registros salvos no banco online?')) return;
   await dbLimparTudo();
   carregarDashboard();
   alert('Histórico limpo.');
 }
 
-// Expõe funções chamadas pelos eventos onclick/oninput do HTML
 Object.assign(window, {
   toggleSidebar,
   navigate,
@@ -586,12 +564,9 @@ Object.assign(window, {
   limparFiltrosHistorico,
   consultarRegistro,
   excluirConjuntoHistorico,
-  visualizarItemHistorico,
-  baixarItemHistorico,
   exportarBackupJSON,
   importarBackupJSON,
   limparTodoBanco
 });
 
-// Inicializa Dashboard
 carregarDashboard();
