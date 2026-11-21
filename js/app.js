@@ -26,7 +26,16 @@ let isConsultingMode = false;
 // NAVEGAÇÃO E SIDEBAR
 // =========================================================================
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('collapsed');
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const isMobile = window.innerWidth <= 960;
+
+  if (isMobile) {
+    const isOpen = sidebar.classList.toggle('mobile-open');
+    if (backdrop) backdrop.classList.toggle('visible', isOpen);
+  } else {
+    sidebar.classList.toggle('collapsed');
+  }
 }
 
 function navigate(view) {
@@ -38,6 +47,13 @@ function navigate(view) {
   document.getElementById('nav-separador').classList.toggle('active', view === 'separador');
   document.getElementById('nav-historico').classList.toggle('active', view === 'historico');
   document.getElementById('nav-configuracoes').classList.toggle('active', view === 'configuracoes');
+
+  // Fecha o menu gaveta automaticamente ao navegar no celular ou tablet
+  if (window.innerWidth <= 960) {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) backdrop.classList.remove('visible');
+  }
 
   const crumbs = {
     dashboard: '<span>Dashboard</span>',
@@ -389,9 +405,9 @@ async function renderizarHistorico() {
   const filtrados = registros.map(reg => {
     const matchedItems = termoNF
       ? (reg.items || []).filter(item =>
-          (item.nfNumber && item.nfNumber.toLowerCase().includes(termoNF)) ||
-          (item.filename && item.filename.toLowerCase().includes(termoNF))
-        )
+        (item.nfNumber && item.nfNumber.toLowerCase().includes(termoNF)) ||
+        (item.filename && item.filename.toLowerCase().includes(termoNF))
+      )
       : [];
     return { reg, matchedItems };
   }).filter(({ reg, matchedItems }) => {
