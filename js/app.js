@@ -5,14 +5,14 @@ import {
   dbExcluirPorId,
   dbLimparTudo,
   formatarDataHoraBR
-} from './db.js';
+} from './db.js?v=2';
 
 import {
   contarPaginasPDF,
   processarLotePDF,
   reprocessarPaginaUnica,
   preaquecerOCR
-} from './ocr-engine.js';
+} from './ocr-engine.js?v=2';
 
 let selectedFile = null;
 let sourceArrayBuffer = null;
