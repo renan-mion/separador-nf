@@ -2,7 +2,31 @@
 const SUPABASE_URL = 'https://leufprzyqtghbhytplfh.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zabo1Rj7DS0PL09N7txqTw_61V8nnS1';
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _supabaseClient = null;
+function getSupabase() {
+  if (_supabaseClient) return _supabaseClient;
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return _supabaseClient;
+}
+
+// Fallback local IndexedDB caso o Supabase esteja inacessível
+const IDB_NAME = 'CentralFerramentasFallbackDB';
+const IDB_STORE = 'processamentos';
+function openFallbackIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 // Remove os bytes pesados do PDF antes de enviar para o banco online
 function sanitizarItensParaBanco(items) {
@@ -16,6 +40,9 @@ function sanitizarItensParaBanco(items) {
 }
 
 export async function dbSalvarProcessamento(registro) {
+  const client = getSupabase();
+  if (!client) throw new Error('Cliente Supabase não carregado.');
+
   const payload = {
     ferramenta: registro.ferramenta,
     pdf_original: registro.pdfOriginal,
@@ -29,7 +56,7 @@ export async function dbSalvarProcessamento(registro) {
   };
 
   if (registro.id) {
-    const { data, error } = await supabaseClient
+    const { data, error } = await client
       .from('processamentos')
       .update(payload)
       .eq('id', registro.id)
@@ -39,7 +66,7 @@ export async function dbSalvarProcessamento(registro) {
     if (error) throw error;
     return data.id;
   } else {
-    const { data, error } = await supabaseClient
+    const { data, error } = await client
       .from('processamentos')
       .insert(payload)
       .select('id, created_at')
@@ -68,34 +95,50 @@ function mapearLinhaBanco(row) {
 }
 
 export async function dbListarProcessamentos() {
-  const { data, error } = await supabaseClient
-    .from('processamentos')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    const client = getSupabase();
+    if (!client) return [];
+    const { data, error } = await client
+      .from('processamentos')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Erro ao listar Supabase:', error);
+    if (error) {
+      console.error('Erro ao listar Supabase:', error);
+      return [];
+    }
+    return (data || []).map(mapearLinhaBanco);
+  } catch (err) {
+    console.error('Falha de conexão com Supabase:', err);
     return [];
   }
-  return (data || []).map(mapearLinhaBanco);
 }
 
 export async function dbObterPorId(id) {
-  const { data, error } = await supabaseClient
-    .from('processamentos')
-    .select('*')
-    .eq('id', id)
-    .single();
+  try {
+    const client = getSupabase();
+    if (!client) return null;
+    const { data, error } = await client
+      .from('processamentos')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-  if (error) {
-    console.error('Erro ao buscar registro:', error);
+    if (error) {
+      console.error('Erro ao buscar registro:', error);
+      return null;
+    }
+    return mapearLinhaBanco(data);
+  } catch (err) {
+    console.error('Falha ao obter registro:', err);
     return null;
   }
-  return mapearLinhaBanco(data);
 }
 
 export async function dbExcluirPorId(id) {
-  const { error } = await supabaseClient
+  const client = getSupabase();
+  if (!client) return;
+  const { error } = await client
     .from('processamentos')
     .delete()
     .eq('id', id);
@@ -104,7 +147,9 @@ export async function dbExcluirPorId(id) {
 }
 
 export async function dbLimparTudo() {
-  const { error } = await supabaseClient
+  const client = getSupabase();
+  if (!client) return;
+  const { error } = await client
     .from('processamentos')
     .delete()
     .neq('id', 0);

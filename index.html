@@ -31,32 +31,32 @@
 
       <div class="nav-section-label">Menu</div>
 
-      <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+      <button type="button" class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Dashboard
       </button>
 
-      <button class="nav-item" id="nav-ferramentas-parent" onclick="navigate('separador')">
+      <button type="button" class="nav-item" id="nav-ferramentas-parent" onclick="navigate('separador')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         Ferramentas
       </button>
-      <button class="nav-subitem" id="nav-separador" onclick="navigate('separador')">
+      <button type="button" class="nav-subitem" id="nav-separador" onclick="navigate('separador')">
         Separador de Notas Fiscais
       </button>
 
-      <button class="nav-item" id="nav-historico" onclick="navigate('historico')">
+      <button type="button" class="nav-item" id="nav-historico" onclick="navigate('historico')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
         Histórico de Processamentos
       </button>
 
-      <button class="nav-item" id="nav-configuracoes" onclick="navigate('configuracoes')">
+      <button type="button" class="nav-item" id="nav-configuracoes" onclick="navigate('configuracoes')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Configurações
       </button>
     </div>
 
     <div class="sidebar-footer">
-      <button class="user-footer-btn" onclick="navigate('dashboard')">
+      <button type="button" class="user-footer-btn" onclick="navigate('dashboard')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Sair (Renan Mion)
       </button>
@@ -66,7 +66,7 @@
   <!-- Conteúdo Principal -->
   <div class="main-wrapper">
     <header class="topbar">
-      <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Alternar menu lateral">
+      <button type="button" class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Alternar menu lateral">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       </button>
       <div class="topbar-divider"></div>
@@ -115,7 +115,7 @@
           </div>
           <h3>Separador de Notas Fiscais</h3>
           <p>Identifique, separe e renomeie automaticamente várias notas fiscais em um único processamento local.</p>
-          <button class="btn-primary" onclick="navigate('separador')">
+          <button type="button" class="btn-primary" onclick="navigate('separador')">
             Acessar ferramenta →
           </button>
         </div>
@@ -128,7 +128,7 @@
 
       <h2 class="section-title">Últimos processamentos</h2>
       <div id="dash-history-container" class="empty-box">
-        Nenhum processamento ainda.
+        Carregando processamentos...
       </div>
     </main>
 
@@ -157,7 +157,7 @@
             <div class="meta-item"><label>Páginas</label><span id="meta-pages">-</span></div>
             <div class="meta-item"><label>Envio</label><span id="meta-date">-</span></div>
           </div>
-          <button class="btn-primary" onclick="iniciarProcessamento()">Iniciar identificação</button>
+          <button type="button" class="btn-primary" onclick="iniciarProcessamento()">Iniciar identificação</button>
         </div>
       </div>
 
@@ -185,7 +185,7 @@
           <span id="warning-text">1 página(s) não puderam ser lidas. Use "Reprocessar" ou edite o número manualmente.</span>
         </div>
 
-        <button class="btn-outline" style="margin-bottom: 20px; padding: 9px 16px;" onclick="resetarSeparador()">
+        <button type="button" class="btn-outline" style="margin-bottom: 20px; padding: 9px 16px;" onclick="resetarSeparador()">
           ↻ Novo arquivo
         </button>
 
@@ -217,7 +217,7 @@
             <h2 class="section-title" style="margin-bottom: 4px;">Notas fiscais renomeadas</h2>
             <div style="font-size: 13px; color: var(--text-secondary);" id="res-subinfo">0 arquivo(s)</div>
           </div>
-          <button class="btn-primary" id="btn-download-zip" onclick="baixarZip()">
+          <button type="button" class="btn-primary" id="btn-download-zip" onclick="baixarZip()">
             ⬇ Baixar NFs em massa (ZIP)
           </button>
         </div>
@@ -268,7 +268,7 @@
             <input type="date" id="filter-to" class="date-input" onchange="renderizarHistorico()" />
           </div>
 
-          <button class="btn-outline" style="height: 40px;" onclick="limparFiltrosHistorico()" title="Limpar filtros">
+          <button type="button" class="btn-outline" style="height: 40px;" onclick="limparFiltrosHistorico()" title="Limpar filtros">
             Limpar
           </button>
         </div>
@@ -298,22 +298,22 @@
     <!-- TELA 4: CONFIGURAÇÕES -->
     <main class="container hidden" id="view-configuracoes">
       <h1>Configurações</h1>
-      <p class="subtitle">Gerenciamento do banco de dados local (IndexedDB — livre de cookies).</p>
+      <p class="subtitle">Gerenciamento dos registros sincronizados (apenas metadados, sem armazenamento de PDFs).</p>
 
       <div class="tools-grid">
         <div class="tool-card">
           <h3>Exportar Histórico (Backup)</h3>
-          <p>Baixe um arquivo de segurança com todo o histórico de notas fiscais registradas para restaurar em outro navegador ou computador.</p>
-          <button class="btn-primary" onclick="exportarBackupJSON()">⬇ Exportar registros (.JSON)</button>
+          <p>Baixe um arquivo de segurança com todo o histórico de notas fiscais registradas para restaurar ou auditar externamente.</p>
+          <button type="button" class="btn-primary" onclick="exportarBackupJSON()">⬇ Exportar registros (.JSON)</button>
         </div>
 
         <div class="tool-card">
           <h3>Importar ou Limpar Registros</h3>
-          <p>Restaure um arquivo de backup anterior ou limpe todos os lotes armazenados neste navegador.</p>
+          <p>Restaure um arquivo de backup anterior ou limpe todos os lotes armazenados no histórico.</p>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <input type="file" id="import-json-input" accept=".json" class="hidden" onchange="importarBackupJSON(this.files[0])" />
-            <button class="btn-outline" style="padding: 10px 16px;" onclick="document.getElementById('import-json-input').click()">⬆ Importar JSON</button>
-            <button class="btn-outline" style="padding: 10px 16px; color: var(--brand-red);" onclick="limparTodoBanco()">🗑 Limpar histórico</button>
+            <button type="button" class="btn-outline" style="padding: 10px 16px;" onclick="document.getElementById('import-json-input').click()">⬆ Importar JSON</button>
+            <button type="button" class="btn-outline" style="padding: 10px 16px; color: var(--brand-red);" onclick="limparTodoBanco()">🗑 Limpar histórico</button>
           </div>
         </div>
       </div>

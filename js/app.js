@@ -10,7 +10,8 @@ import {
 import {
   contarPaginasPDF,
   processarLotePDF,
-  reprocessarPaginaUnica
+  reprocessarPaginaUnica,
+  preaquecerOCR
 } from './ocr-engine.js';
 
 let selectedFile = null;
@@ -28,6 +29,7 @@ let isConsultingMode = false;
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
   const isMobile = window.innerWidth <= 960;
 
   if (isMobile) {
@@ -40,17 +42,22 @@ function toggleSidebar() {
 
 function navigate(view) {
   ['dashboard', 'separador', 'historico', 'configuracoes'].forEach(v => {
-    document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== view);
   });
 
-  document.getElementById('nav-dashboard').classList.toggle('active', view === 'dashboard');
-  document.getElementById('nav-separador').classList.toggle('active', view === 'separador');
-  document.getElementById('nav-historico').classList.toggle('active', view === 'historico');
-  document.getElementById('nav-configuracoes').classList.toggle('active', view === 'configuracoes');
+  const navDash = document.getElementById('nav-dashboard');
+  const navSep = document.getElementById('nav-separador');
+  const navHist = document.getElementById('nav-historico');
+  const navConf = document.getElementById('nav-configuracoes');
+  if (navDash) navDash.classList.toggle('active', view === 'dashboard');
+  if (navSep) navSep.classList.toggle('active', view === 'separador');
+  if (navHist) navHist.classList.toggle('active', view === 'historico');
+  if (navConf) navConf.classList.toggle('active', view === 'configuracoes');
 
-  // Fecha o menu gaveta automaticamente ao navegar no celular ou tablet
   if (window.innerWidth <= 960) {
-    document.getElementById('sidebar').classList.remove('mobile-open');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('mobile-open');
     const backdrop = document.getElementById('sidebar-backdrop');
     if (backdrop) backdrop.classList.remove('visible');
   }
@@ -61,9 +68,11 @@ function navigate(view) {
     historico: '<span>Histórico de Processamentos</span>',
     configuracoes: '<span>Configurações</span>'
   };
-  document.getElementById('breadcrumb').innerHTML = crumbs[view];
+  const bc = document.getElementById('breadcrumb');
+  if (bc) bc.innerHTML = crumbs[view] || '';
 
   if (view === 'dashboard') carregarDashboard();
+  if (view === 'separador') preaquecerOCR(4).catch(() => {});
   if (view === 'historico') renderizarHistorico();
 }
 
@@ -71,64 +80,76 @@ function navigate(view) {
 // DASHBOARD
 // =========================================================================
 async function carregarDashboard() {
-  const registros = await dbListarProcessamentos();
-  const totalDocs = registros.length;
-  const totalNfs = registros.reduce((acc, r) => acc + (r.notasIdentificadas || 0), 0);
-  const totalArqs = registros.reduce((acc, r) => acc + (r.arquivosGerados || 0), 0);
-
-  document.getElementById('stat-docs').textContent = totalDocs;
-  document.getElementById('stat-nfs').textContent = totalNfs;
-  document.getElementById('stat-files').textContent = totalArqs;
-
   const container = document.getElementById('dash-history-container');
-  if (registros.length === 0) {
-    container.className = 'empty-box';
-    container.innerHTML = 'Nenhum processamento registrado na nuvem ainda.';
-  } else {
-    container.className = 'table-card';
-    container.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Data e horário</th>
-            <th>PDF original</th>
-            <th>Notas</th>
-            <th>Arquivos</th>
-            <th style="text-align:right;">Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${registros.slice(0, 5).map(r => `
+  try {
+    const registros = await dbListarProcessamentos();
+    const totalDocs = registros.length;
+    const totalNfs = registros.reduce((acc, r) => acc + (r.notasIdentificadas || 0), 0);
+    const totalArqs = registros.reduce((acc, r) => acc + (r.arquivosGerados || 0), 0);
+
+    document.getElementById('stat-docs').textContent = totalDocs;
+    document.getElementById('stat-nfs').textContent = totalNfs;
+    document.getElementById('stat-files').textContent = totalArqs;
+
+    if (!container) return;
+    if (registros.length === 0) {
+      container.className = 'empty-box';
+      container.innerHTML = 'Nenhum processamento registrado na nuvem ainda.';
+    } else {
+      container.className = 'table-card';
+      container.innerHTML = `
+        <table>
+          <thead>
             <tr>
-              <td class="mono" style="font-size:12.5px;">${formatarDataHoraBR(r.timestamp)}</td>
-              <td><strong>${r.pdfOriginal}</strong></td>
-              <td class="mono">${r.notasIdentificadas}</td>
-              <td class="mono">${r.arquivosGerados}</td>
-              <td style="text-align:right;">
-                <div class="action-btns" style="justify-content: flex-end;">
-                  <button class="btn-outline" onclick="consultarRegistro(${r.id})">Consultar</button>
-                  <button class="btn-danger-outline" title="Excluir conjunto" onclick="excluirConjuntoHistorico(${r.id})">🗑</button>
-                </div>
-              </td>
+              <th>Data e horário</th>
+              <th>PDF original</th>
+              <th>Notas</th>
+              <th>Arquivos</th>
+              <th style="text-align:right;">Ação</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+          </thead>
+          <tbody>
+            ${registros.slice(0, 5).map(r => `
+              <tr>
+                <td class="mono" style="font-size:12.5px;">${formatarDataHoraBR(r.timestamp)}</td>
+                <td><strong>${r.pdfOriginal}</strong></td>
+                <td class="mono">${r.notasIdentificadas}</td>
+                <td class="mono">${r.arquivosGerados}</td>
+                <td style="text-align:right;">
+                  <div class="action-btns" style="justify-content: flex-end;">
+                    <button type="button" class="btn-outline" onclick="consultarRegistro(${r.id})">Consultar</button>
+                    <button type="button" class="btn-danger-outline" title="Excluir conjunto" onclick="excluirConjuntoHistorico(${r.id})">🗑</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch (err) {
+    console.error('Erro ao carregar dashboard:', err);
+    if (container) {
+      container.className = 'empty-box';
+      container.innerHTML = 'Nenhum processamento carregado no momento.';
+    }
   }
 }
 
 // =========================================================================
 // UPLOAD E PROCESSAMENTO
 // =========================================================================
-const dropzone = document.getElementById('dropzone');
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('dragover');
-  if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
-});
+function inicializarDropzone() {
+  const dropzone = document.getElementById('dropzone');
+  if (!dropzone) return;
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+  });
+}
 
 async function handleFileSelect(file) {
   if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
@@ -136,6 +157,7 @@ async function handleFileSelect(file) {
     return;
   }
   selectedFile = file;
+  preaquecerOCR(4).catch(() => {});
   sourceArrayBuffer = await file.arrayBuffer();
   const totalPages = await contarPaginasPDF(sourceArrayBuffer);
 
@@ -239,7 +261,6 @@ function renderizarResultados() {
   document.getElementById('res-subinfo').textContent =
     `${batchItems.length} arquivo(s) · ${revisao} aguardando revisão`;
 
-  // Só mostra o botão de ZIP em massa quando os PDFs estão na memória da sessão atual
   const btnZip = document.getElementById('btn-download-zip');
   if (btnZip) btnZip.classList.toggle('hidden', !temArquivosNaSessao);
 
@@ -261,20 +282,20 @@ function renderizarResultados() {
       : `<span class="status-pill status-ok">✓ Identificado</span>`;
 
     const editBtn = isEditing
-      ? `<button class="icon-btn confirm" title="Confirmar" onclick="salvarEdicao(${item.id})">✓</button>`
-      : `<button class="icon-btn" title="Editar número da NF" onclick="ativarEdicao(${item.id})">✎</button>`;
+      ? `<button type="button" class="icon-btn confirm" title="Confirmar" onclick="salvarEdicao(${item.id})">✓</button>`
+      : `<button type="button" class="icon-btn" title="Editar número da NF" onclick="ativarEdicao(${item.id})">✎</button>`;
 
     const sessionActions = item.pdfBytes
       ? `
-        <button class="icon-btn" title="Visualizar PDF (Sessão atual)" onclick="visualizarPDF(${item.id})">👁</button>
+        <button type="button" class="icon-btn" title="Visualizar PDF (Sessão atual)" onclick="visualizarPDF(${item.id})">👁</button>
         ${editBtn}
-        <button class="icon-btn" title="Reprocessar OCR clássico" onclick="reprocessarItem(${item.id})">↻</button>
-        <button class="icon-btn" title="Baixar PDF (Sessão atual)" onclick="baixarPDF(${item.id})">⬇</button>
-        <button class="icon-btn danger" title="Remover" onclick="excluirItem(${item.id})">🗑</button>
+        <button type="button" class="icon-btn" title="Reprocessar OCR clássico" onclick="reprocessarItem(${item.id})">↻</button>
+        <button type="button" class="icon-btn" title="Baixar PDF (Sessão atual)" onclick="baixarPDF(${item.id})">⬇</button>
+        <button type="button" class="icon-btn danger" title="Remover" onclick="excluirItem(${item.id})">🗑</button>
       `
       : `
         ${editBtn}
-        <button class="icon-btn danger" title="Remover registro" onclick="excluirItem(${item.id})">🗑</button>
+        <button type="button" class="icon-btn danger" title="Remover registro" onclick="excluirItem(${item.id})">🗑</button>
       `;
 
     return `
@@ -405,9 +426,9 @@ async function renderizarHistorico() {
   const filtrados = registros.map(reg => {
     const matchedItems = termoNF
       ? (reg.items || []).filter(item =>
-        (item.nfNumber && item.nfNumber.toLowerCase().includes(termoNF)) ||
-        (item.filename && item.filename.toLowerCase().includes(termoNF))
-      )
+          (item.nfNumber && item.nfNumber.toLowerCase().includes(termoNF)) ||
+          (item.filename && item.filename.toLowerCase().includes(termoNF))
+        )
       : [];
     return { reg, matchedItems };
   }).filter(({ reg, matchedItems }) => {
@@ -450,14 +471,13 @@ async function renderizarHistorico() {
         <td style="${statusStyle}">${reg.status}</td>
         <td style="text-align: right;">
           <div class="action-btns" style="justify-content: flex-end;">
-            <button class="btn-outline" onclick="consultarRegistro(${reg.id})">Consultar</button>
-            <button class="btn-danger-outline" title="Excluir este conjunto do histórico" onclick="excluirConjuntoHistorico(${reg.id})">🗑</button>
+            <button type="button" class="btn-outline" onclick="consultarRegistro(${reg.id})">Consultar</button>
+            <button type="button" class="btn-danger-outline" title="Excluir este conjunto do histórico" onclick="excluirConjuntoHistorico(${reg.id})">🗑</button>
           </div>
         </td>
       </tr>
     `;
 
-    // Sub-aba interligada ao conjunto quando houver pesquisa por NF ativa
     if (termoNF && matchedItems.length > 0) {
       html += `
         <tr class="matched-nf-row">
@@ -563,6 +583,7 @@ async function limparTodoBanco() {
   alert('Histórico limpo.');
 }
 
+// Registra todas as funções no escopo global imediatamente
 Object.assign(window, {
   toggleSidebar,
   navigate,
@@ -585,4 +606,13 @@ Object.assign(window, {
   limparTodoBanco
 });
 
-carregarDashboard();
+// Inicializa eventos e carrega o Dashboard
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    inicializarDropzone();
+    carregarDashboard();
+  });
+} else {
+  inicializarDropzone();
+  carregarDashboard();
+}
